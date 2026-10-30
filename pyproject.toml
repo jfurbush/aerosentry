@@ -1,0 +1,38 @@
+[project]
+name = "aerosentry"
+version = "0.1.0"
+description = "Predictive maintenance dashboard: turbofan Remaining Useful Life (RUL) estimation from NASA CMAPSS FD001"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data", "models"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["app", "pipeline"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["app", "pipeline"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "data", "models"]

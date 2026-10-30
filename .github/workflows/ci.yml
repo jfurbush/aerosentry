@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Prepare report folder
+        run: mkdir -p reports
+
+      - name: Ruff (lint)
+        run: ruff check . | tee reports/ruff.txt
+
+      - name: Mypy (types)
+        run: mypy | tee reports/mypy.txt
+
+      - name: Bandit (security, high severity only)
+        run: bandit -r app pipeline -lll | tee reports/bandit.txt
+
+      - name: Pytest with coverage (80% minimum)
+        run: pytest --cov=app --cov=pipeline --cov-report=term-missing --cov-fail-under=80 | tee reports/pytest.txt
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports
+          path: reports/
