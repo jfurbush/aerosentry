@@ -111,6 +111,10 @@ A live hosted instance is not part of the core scope.
 
 Significant changes go through a pull request. Before merging, an AI tool reviews the diff, and the feedback and my response are recorded in `docs/ai-review-log/PR-<number>.md` using `TEMPLATE.md`. This substitutes for second-person review on an individual project and was approved by the instructor.
 
+## AI use
+
+Parts of this project were written with an AI assistant (Claude), including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates). I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
+
 ## Data and attribution
 
 NASA CMAPSS Turbofan Engine Degradation Simulation dataset: A. Saxena, K. Goebel, D. Simon, N. Eklund, "Damage Propagation Modeling for Aircraft Engine Run-to-Failure Simulation," NASA Prognostics Data Repository.
