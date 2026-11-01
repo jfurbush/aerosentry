@@ -109,7 +109,7 @@ A live hosted instance is not part of the core scope.
 
 ## Pull requests and AI-assisted review
 
-Significant changes go through a pull request. Before merging, an AI tool reviews the diff, and the feedback and my response are recorded in `docs/ai-review-log/PR-<number>.md` using `TEMPLATE.md`. This substitutes for second-person review on an individual project and was approved by the instructor.
+Significant changes go through a pull request. Before merging, an AI tool reviews the diff, and the feedback and my response are recorded in `docs/ai-review-log/PR-<number>.md` using `TEMPLATE.md`. This substitutes for second-person review on an individual project and was approved by the instructor. scaffold was generated with an AI assistant and reviewed by myself.
 
 ## Data and attribution
 
