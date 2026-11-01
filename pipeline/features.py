@@ -31,22 +31,29 @@ def add_rolling_features(
 ) -> pd.DataFrame:
     """Return a copy of `df` with rolling mean and std columns added for each sensor and window.
 
-    Early cycles use the cycles available so far (min_periods=1). The std of a single
-    reading is undefined, so it is set to 0.
+    Early cycles use the cycles available so far (min_periods=1). An engine's first cycle
+    has only one reading, so its std is defined as 0. A std that is undefined for any other
+    reason, such as a missing sensor reading, stays NaN so the gap is visible.
     """
     if any(w < 2 for w in windows):
         raise ValueError("every window must be at least 2 cycles")
     missing = [s for s in sensors if s not in df.columns]
     if missing:
         raise ValueError(f"missing sensor columns: {missing}")
+    new_names = feature_columns(sensors, windows)[len(sensors) :]
+    already_there = [name for name in new_names if name in df.columns]
+    if already_there:
+        raise ValueError(f"feature columns already exist: {already_there}")
 
     out = df.sort_values(["engine_id", "cycle"]).reset_index(drop=True)
+    first_cycle = out.groupby("engine_id").cumcount() == 0
     grouped = out.groupby("engine_id")[list(sensors)]
     parts = [out]
     for window in windows:
         rolling = grouped.rolling(window, min_periods=1)
         mean = rolling.mean().reset_index(level=0, drop=True)
-        std = rolling.std().reset_index(level=0, drop=True).fillna(0.0)
+        std = rolling.std().reset_index(level=0, drop=True)
+        std[first_cycle] = 0.0
         parts.append(mean.add_suffix(f"_mean{window}"))
         parts.append(std.add_suffix(f"_std{window}"))
     return pd.concat(parts, axis=1)

@@ -91,3 +91,24 @@ def test_output_contains_every_feature_column() -> None:
     out = add_rolling_features(frame, sensors=["s2", "s3"], windows=[5, 10])
     assert set(feature_columns(["s2", "s3"], [5, 10])) <= set(out.columns)
     assert not any(math.isnan(v) for v in out["s3_std10"])
+
+
+def test_std_of_two_readings_matches_hand_calculation() -> None:
+    out = add_rolling_features(_frame(), sensors=["s2"], windows=[3])
+    # std of [10, 20] with ddof=1 is sqrt(50)
+    assert out["s2_std3"].iloc[1] == pytest.approx(7.0710678)
+
+
+def test_missing_reading_is_not_hidden_as_zero_std() -> None:
+    frame = pd.DataFrame(
+        {"engine_id": [1, 1, 1], "cycle": [1, 2, 3], "s2": [10.0, float("nan"), 30.0]}
+    )
+    out = add_rolling_features(frame, sensors=["s2"], windows=[2])
+    assert out["s2_std2"].iloc[0] == 0.0  # first cycle: defined as 0
+    assert math.isnan(out["s2_std2"].iloc[1])  # one valid reading in the window: unknown
+
+
+def test_existing_feature_columns_are_rejected() -> None:
+    once = add_rolling_features(_frame(), sensors=["s2"], windows=[3])
+    with pytest.raises(ValueError, match="already exist"):
+        add_rolling_features(once, sensors=["s2"], windows=[3])

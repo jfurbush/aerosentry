@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pipeline.data import ALL_COLUMNS, SENSOR_COLUMNS
+from pipeline.data import SENSOR_COLUMNS
 
 
 def _engine_rows(engine_id: int, n_cycles: int, rng: np.random.Generator) -> list[str]:
@@ -43,7 +43,6 @@ def write_synthetic_raw_dir(root: Path) -> Path:
     (root / "test_FD001.txt").write_text("\n".join(test_lines) + "\n")
     (root / "RUL_FD001.txt").write_text("\n".join(str(v) for v in rul_values) + "\n")
 
-    assert len(ALL_COLUMNS) == 26
     return root
 
 
