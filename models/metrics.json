@@ -1,0 +1,20 @@
+{
+  "rmse_cycles": 18.557,
+  "baseline_rmse_cycles": 41.942,
+  "rmse_vs_unclipped_actual_cycles": 19.574,
+  "target_rmse_cycles": 25.0,
+  "met_target": true,
+  "evaluated_on": "last recorded cycle of each FD001 test engine",
+  "n_train_rows": 20631,
+  "n_train_engines": 100,
+  "n_test_engines": 100,
+  "model": "RandomForestRegressor",
+  "n_estimators": 200,
+  "rul_clip": 125,
+  "windows": [
+    5,
+    10
+  ],
+  "seed": 42,
+  "sklearn_version": "1.5.1"
+}
