@@ -42,4 +42,5 @@ def test_model_beats_baseline_on_real_test_set(tmp_path: Path) -> None:
         n_estimators=50,
     )
     assert metrics["n_test_engines"] == 100
-    assert metrics["rmse_cycles"] < metrics["baseline_rmse_cycles"]
+    for view in ["vs_clipped_actual", "vs_unclipped_actual"]:
+        assert metrics[view]["rmse"] < metrics[view]["baseline_rmse"]
