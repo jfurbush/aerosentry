@@ -37,6 +37,8 @@ def add_rolling_features(
     """
     if any(w < 2 for w in windows):
         raise ValueError("every window must be at least 2 cycles")
+    if len(set(windows)) != len(windows):
+        raise ValueError("window sizes must not repeat")
     missing = [s for s in sensors if s not in df.columns]
     if missing:
         raise ValueError(f"missing sensor columns: {missing}")
