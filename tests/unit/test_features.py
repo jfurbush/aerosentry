@@ -112,3 +112,8 @@ def test_existing_feature_columns_are_rejected() -> None:
     once = add_rolling_features(_frame(), sensors=["s2"], windows=[3])
     with pytest.raises(ValueError, match="already exist"):
         add_rolling_features(once, sensors=["s2"], windows=[3])
+
+
+def test_repeated_window_sizes_are_rejected() -> None:
+    with pytest.raises(ValueError, match="must not repeat"):
+        add_rolling_features(_frame(), sensors=["s2"], windows=[3, 3])
