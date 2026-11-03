@@ -54,9 +54,12 @@ def test_latest_feature_row_lookup_works(synthetic_raw_dir: Path, tmp_path: Path
 
 def test_rebuilding_replaces_the_old_database(synthetic_raw_dir: Path, tmp_path: Path) -> None:
     db = tmp_path / "t.db"
+    with closing(sqlite3.connect(db)) as conn:  # a stale database from an earlier run
+        conn.execute("CREATE TABLE engines (engine_id INTEGER, n_cycles INTEGER)")
+        conn.execute("INSERT INTO engines VALUES (99, 7)")
+        conn.commit()
     build_database(synthetic_raw_dir, db)
-    build_database(synthetic_raw_dir, db)
-    assert _query(db, "SELECT COUNT(*) FROM engines") == [(3,)]
+    assert _query(db, "SELECT engine_id FROM engines ORDER BY engine_id") == [(1,), (2,), (3,)]
     assert not (tmp_path / "t.db.tmp").exists()
 
 
@@ -88,12 +91,16 @@ def test_command_line_entry_point(
 def test_failed_write_cleans_up_the_temp_file(
     synthetic_raw_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    db = tmp_path / "t.db"
+    temp_existed_during_write: list[bool] = []
+
     def boom(*args: object, **kwargs: object) -> None:
+        temp_existed_during_write.append((tmp_path / "t.db.tmp").exists())
         raise RuntimeError("disk full")
 
     monkeypatch.setattr("pandas.DataFrame.to_sql", boom)
-    db = tmp_path / "t.db"
     with pytest.raises(RuntimeError, match="disk full"):
         build_database(synthetic_raw_dir, db)
+    assert temp_existed_during_write == [True]  # so the cleanup below really ran
     assert not db.exists()
     assert not (tmp_path / "t.db.tmp").exists()
