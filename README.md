@@ -7,7 +7,7 @@ Group members: Jeffery Furbush (individual project).
 
 ## Status
 
-This repository is at scaffold stage. CI, CD, the Dockerfile, and the folder layout are in place. The data pipeline, model, `/engines`, `/predict`, and the dashboard are not implemented yet. See `docs/changes-log.md` for the current status table. This README describes the target behavior; update it as each piece lands.
+Working: FD001 loading and features (`pipeline/data.py`, `pipeline/features.py`), model training (`pipeline/train.py`), SQLite storage (`pipeline/load_db.py`), and the API (`/health`, `/engines`, `/predict`). Not done: the dashboard. The Docker build has not been tested yet, and the CD workflow is disabled until it has been. See `docs/changes-log.md` for the status table.
 
 ## Stack
 
@@ -17,7 +17,7 @@ Python 3.11+, FastAPI, scikit-learn (one model), pandas, SQLite, Jinja2 with Plo
 
 ```
 app/                FastAPI app, database access, model loading, schemas, templates
-pipeline/           features.py, train.py, load_db.py
+pipeline/           data.py, features.py, train.py, load_db.py
 models/             trained .joblib (generated)
 data/raw/           CMAPSS FD001 files (committed)
 tests/unit/         unit tests
@@ -28,38 +28,59 @@ docs/               changes log, report template, ai-review-log/
 
 ## Setup
 
+Windows PowerShell:
+
+```
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+```
+
+Linux or macOS:
+
 ```
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
+If PowerShell refuses to run the activation script with an execution policy error, allow local scripts for your user once (answer Y if asked), then activate again:
+
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
 
 ## Rebuild the database and model
 
-Place the FD001 files in `data/raw/`, then:
+The database and model are generated files and are not committed. The raw FD001 files are in `data/raw/`. To build them:
 
 ```
 python -m pipeline.load_db     # writes data/aerosentry.db
-python -m pipeline.train       # writes models/rul_model.joblib, prints test RMSE and baseline
+python -m pipeline.train       # writes models/rul_model.joblib and models/metrics.json
 ```
 
 Training uses a fixed random seed.
 
 ## Run the service
 
+Build the database and model first (see above), then:
+
 ```
 uvicorn app.main:app --reload
 ```
 
-Then open http://localhost:8000 for the dashboard and http://localhost:8000/docs for the API docs.
+API docs are at http://localhost:8000/docs. There is no dashboard yet.
 
-API (target behavior):
+API:
 
-- `GET /engines` returns engine IDs and cycle counts.
-- `POST /predict` with `{"engine_id": 1}` returns `engine_id`, `cycle`, `predicted_rul`.
-- Unknown engine ID returns 404. Malformed request returns 422.
+- `GET /health` returns `{"status": "ok"}` while the service is running. It is a liveness check only and does not touch the model or database.
+- `GET /engines` returns a list of `{"engine_id", "n_cycles"}` for each engine in the database.
+- `POST /predict` with `{"engine_id": 1}` returns `engine_id`, `cycle` (the engine's latest recorded cycle) and `predicted_rul` in cycles. The model was trained on RUL capped at 125, so a value near 125 means "at least about 125".
 
-Currently only `GET /health` exists.
+Errors are always `{"detail": "..."}`:
+
+- 404: unknown engine ID.
+- 422: malformed request, including a non-integer, zero, negative, or missing `engine_id`.
+- 503: the database or model file is unavailable.
+- 500: the model and database do not match.
 
 ## Run the tests
 
@@ -73,11 +94,14 @@ Coverage must be at least 80%.
 
 ```
 ruff check .
+ruff format --check .
 mypy
 bandit -r app pipeline -lll
 ```
 
 ## Docker
+
+Not yet tested: this section describes the intended build. It has not been run successfully yet.
 
 Build (trains the model during the build, from `data/raw/`):
 
@@ -96,9 +120,9 @@ The container runs as a non-root user.
 ## CI/CD and deployment
 
 - `ci.yml` runs on every push and pull request: ruff, mypy, bandit, pytest with coverage. Reports are uploaded as a workflow artifact named `ci-reports`.
-- `cd.yml` runs on merge to `main`: builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/<owner>/<repo>`, tagged with the commit SHA and `latest`.
+- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/<owner>/<repo>`, tagged with the commit SHA and `latest`. It is configured to run on merge to `main`, but it is currently disabled until the Docker build has been tested.
 
-Pull the published image:
+No image has been published yet. Once one is, it can be pulled with:
 
 ```
 docker pull ghcr.io/<owner>/<repo>:latest
@@ -113,7 +137,7 @@ Significant changes go through a pull request. Before merging, an AI tool review
 
 ## AI use
 
-Parts of this project were written with an AI assistant (Claude), including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates). I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
+Parts of this project were written with an AI assistant (Claude), including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates) and later pipeline and API code. I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
 
 ## Data and attribution
 
