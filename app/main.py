@@ -1,16 +1,15 @@
-"""AeroSentry FastAPI application: engine list and RUL prediction (FR-6, FR-7, FR-8).
-
-Dashboard pages (FR-9 to FR-12) are not implemented yet.
-"""
+"""AeroSentry FastAPI application: engine list, RUL prediction, and dashboard (FR-6 to FR-12)."""
 
 import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app import db
 from app.config import Settings, get_settings
@@ -28,6 +27,13 @@ app = FastAPI(
         '{"detail": "<message>"}.'
     ),
 )
+
+# ------------------------------------------------------------------------------
+# Dashboard Setup (FR-9 to FR-12)
+# ------------------------------------------------------------------------------
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="app/templates")
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
@@ -116,3 +122,59 @@ def predict(body: PredictRequest, settings: SettingsDep) -> PredictResponse:
     model = _cached_model(str(settings.model_path))
     rul = predict_rul(model, latest.values)
     return PredictResponse(engine_id=latest.engine_id, cycle=latest.cycle, predicted_rul=rul)
+
+
+@app.get("/")
+def dashboard_home(request: Request, settings: SettingsDep) -> Response:
+    """Render the dashboard overview listing all engines."""
+    rows = db.list_engines(settings.db_path)
+    engine_list = [EngineSummary(engine_id=r.engine_id, n_cycles=r.n_cycles) for r in rows]
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "engines": engine_list},
+    )
+
+
+@app.get("/engines/{engine_id}")
+def engine_detail(engine_id: int, request: Request, settings: SettingsDep) -> Response:
+    """Render detailed view with sensor trends and RUL prediction for a specific engine."""
+    latest = db.latest_features(settings.db_path, engine_id)
+    if latest is None:
+        raise HTTPException(status_code=404, detail=f"Engine {engine_id} not found")
+
+    model = _cached_model(str(settings.model_path))
+    rul = predict_rul(model, latest.values)
+
+    import sqlite3
+    conn = sqlite3.connect(settings.db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    sensor_cols = [f"s{i}" for i in range(1, 22)]
+    cols_query = ", ".join(sensor_cols)
+    cursor.execute(
+        f"SELECT cycle, {cols_query} FROM readings WHERE engine_id = ? ORDER BY cycle ASC",  # noqa: S608
+        (engine_id,),
+    )
+    history = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    cycles = [h["cycle"] for h in history]
+    sensors_data = {col: [h[col] for h in history] for col in sensor_cols}
+
+    max_recorded = max(cycles) if cycles else 1
+    total_estimated_life = max_recorded + rul
+    rul_trajectory = [total_estimated_life - c for c in cycles]
+
+    return templates.TemplateResponse(
+        "engine.html",
+        {
+            "request": request,
+            "engine_id": engine_id,
+            "cycle": latest.cycle,
+            "predicted_rul": rul,
+            "cycles": cycles,
+            "sensors_data": sensors_data,
+            "rul_trajectory": rul_trajectory,
+        },
+    )
