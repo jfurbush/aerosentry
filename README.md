@@ -67,7 +67,7 @@ API docs are at http://localhost:8000/docs. There is no dashboard yet.
 
 API:
 
-- `GET /health` returns service status.
+- `GET /health` returns `{"status": "ok"}` while the service is running. It is a liveness check only and does not touch the model or database.
 - `GET /engines` returns a list of `{"engine_id", "n_cycles"}` for each engine in the database.
 - `POST /predict` with `{"engine_id": 1}` returns `engine_id`, `cycle` (the engine's latest recorded cycle) and `predicted_rul` in cycles. The model was trained on RUL capped at 125, so a value near 125 means "at least about 125".
 
