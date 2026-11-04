@@ -73,9 +73,11 @@ def latest_features(db_path: Path, engine_id: int) -> LatestFeatures | None:
     values = {key: row[key] for key in row.keys() if key not in ("engine_id", "cycle")}  # noqa: SIM118
     return LatestFeatures(engine_id=int(row["engine_id"]), cycle=int(row["cycle"]), values=values)
 
+
 def get_engine_history(db_path: Path, engine_id: int) -> list[dict[str, Any]]:
     """Retrieve all historical readings for a specific engine ordered by cycle."""
     import sqlite3
+
     sensor_cols = [f"s{i}" for i in range(1, 22)]
     cols_query = ", ".join(sensor_cols)
 
