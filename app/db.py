@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 class DatabaseUnavailable(Exception):
@@ -71,3 +72,18 @@ def latest_features(db_path: Path, engine_id: int) -> LatestFeatures | None:
         return None
     values = {key: row[key] for key in row.keys() if key not in ("engine_id", "cycle")}  # noqa: SIM118
     return LatestFeatures(engine_id=int(row["engine_id"]), cycle=int(row["cycle"]), values=values)
+
+def get_engine_history(db_path: Path, engine_id: int) -> list[dict[str, Any]]:
+    """Retrieve all historical readings for a specific engine ordered by cycle."""
+    import sqlite3
+    sensor_cols = [f"s{i}" for i in range(1, 22)]
+    cols_query = ", ".join(sensor_cols)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT cycle, {cols_query} FROM readings WHERE engine_id = ? ORDER BY cycle ASC",  # noqa: S608
+            (engine_id,),
+        )
+        return [dict(row) for row in cursor.fetchall()]

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Aerosentry - Engine {{ engine_id }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <a href="/" class="text-xs text-emerald-400 hover:underline">&larr; Back to Fleet Overview</a>
+        <h1 class="text-2xl font-semibold mt-1">Engine {{ engine_id }} Telemetry & RUL Analysis</h1>
+        <p class="text-gray-400 text-sm">Current Operating Cycle: <span class="text-gray-200 font-medium">{{ cycle }}</span></p>
+    </div>
+    <div class="bg-gray-800 border border-gray-700 px-5 py-3 rounded-lg shadow-lg text-right">
+        <div class="text-xs text-gray-400 uppercase tracking-wider">Predicted RUL</div>
+        <div class="text-2xl font-bold text-emerald-400">{{ "%.1f"|format(predicted_rul) }} <span class="text-sm font-normal text-gray-400">cycles</span></div>
+    </div>
+</div>
+
+<div class="space-y-6">
+    <!-- Chart 1: RUL Trajectory Plot -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 shadow-xl">
+        <h2 class="text-lg font-medium text-gray-200 mb-2">Remaining Useful Life (RUL) Trajectory</h2>
+        <div id="rul-chart" class="w-full h-80"></div>
+    </div>
+
+    <!-- Chart 2: Interactive Multi-Sensor Telemetry -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 shadow-xl">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-medium text-gray-200">Multi-Sensor Telemetry (Select Sensors to Plot)</h2>
+            <span class="text-xs text-gray-400">NASA CMAPSS Sensors 1–21</span>
+        </div>
+
+        <!-- Sensor Checkbox Grid -->
+        <div class="grid grid-cols-7 gap-2 bg-gray-900/50 p-4 rounded-lg border border-gray-700 mb-4 text-xs">
+            {% for i in range(1, 22) %}
+            {% set s_name = 's' ~ i %}
+            <label class="flex items-center space-x-2 text-gray-300 cursor-pointer hover:text-emerald-400">
+                <input type="checkbox" name="sensor-toggle" value="{{ s_name }}" 
+                    {% if i in [2, 3, 4, 7, 11, 12] %}checked{% endif %}
+                    class="rounded bg-gray-800 border-gray-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-900 sensor-checkbox">
+                <span>Sensor {{ i }}</span>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div id="sensor-chart" class="w-full h-96"></div>
+    </div>
+</div>
+
+<script>
+    var cycles = {{ cycles | tojson }};
+    var rulTrajectory = {{ rul_trajectory | tojson }};
+    var sensorsData = {{ sensors_data | tojson }};
+
+    // Color palette for active sensor traces
+    var colors = [
+        '#34d399', '#60a5fa', '#f59e0b', '#ec4899', '#a78bfa', 
+        '#38bdf8', '#fbbf24', '#f43f5e', '#c084fc', '#2dd4bf',
+        '#818cf8', '#fb923c', '#e879f9', '#4ade80', '#38bdf8',
+        '#facc15', '#fda4af', '#d8b4fe', '#5eead4', '#93c5fd', '#fde047'
+    ];
+
+    // --- Chart 1: RUL Trajectory ---
+    var rulTrace = {
+        x: cycles,
+        y: rulTrajectory,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'RUL Estimate',
+        line: { color: '#34d399', width: 2.5 },
+        marker: { size: 4 }
+    };
+
+    var rulLayout = {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#9ca3af' },
+        margin: { t: 20, r: 30, b: 50, l: 70 },
+        xaxis: { title: 'Operating Cycle', gridcolor: '#374151', zerolinecolor: '#374151' },
+        yaxis: { title: 'RUL (Cycles)', gridcolor: '#374151', zerolinecolor: '#374151' },
+        showlegend: false
+    };
+
+    Plotly.newPlot('rul-chart', [rulTrace], rulLayout, {responsive: true});
+
+    // --- Chart 2: Dynamic Sensor Telemetry ---
+    function updateSensorChart() {
+        var checkboxes = document.querySelectorAll('.sensor-checkbox');
+        var traces = [];
+        var colorIdx = 0;
+
+        checkboxes.forEach(function(cb) {
+            if (cb.checked) {
+                var sKey = cb.value;
+                var sNum = sKey.replace('s', '');
+                traces.push({
+                    x: cycles,
+                    y: sensorsData[sKey],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `Sensor ${sNum}`,
+                    line: { color: colors[colorIdx % colors.length], width: 1.8 }
+                });
+            }
+            colorIdx++;
+        });
+
+        var sensorLayout = {
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: '#9ca3af' },
+            margin: { t: 20, r: 30, b: 50, l: 70 },
+            xaxis: { title: 'Operating Cycle', gridcolor: '#374151', zerolinecolor: '#374151' },
+            yaxis: { title: 'Sensor Readings', gridcolor: '#374151', zerolinecolor: '#374151' },
+            legend: {
+                orientation: 'h',
+                y: -0.2,
+                x: 0
+            }
+        };
+
+        Plotly.react('sensor-chart', traces, sensorLayout, {responsive: true});
+    }
+
+    // Attach event listeners to checkboxes
+    document.querySelectorAll('.sensor-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', updateSensorChart);
+    });
+
+    // Initial render
+    updateSensorChart();
+</script>
+{% endblock %}

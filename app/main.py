@@ -1,16 +1,15 @@
-"""AeroSentry FastAPI application: engine list and RUL prediction (FR-6, FR-7, FR-8).
-
-Dashboard pages (FR-9 to FR-12) are not implemented yet.
-"""
+"""AeroSentry FastAPI application: engine list, RUL prediction, and dashboard (FR-6 to FR-12)."""
 
 import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app import db
 from app.config import Settings, get_settings
@@ -28,6 +27,14 @@ app = FastAPI(
         '{"detail": "<message>"}.'
     ),
 )
+
+# ------------------------------------------------------------------------------
+# Dashboard Setup (FR-9 to FR-12) with Absolute Path Resolution
+# ------------------------------------------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parent
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
@@ -116,3 +123,64 @@ def predict(body: PredictRequest, settings: SettingsDep) -> PredictResponse:
     model = _cached_model(str(settings.model_path))
     rul = predict_rul(model, latest.values)
     return PredictResponse(engine_id=latest.engine_id, cycle=latest.cycle, predicted_rul=rul)
+
+
+@app.get("/")
+def dashboard_home(request: Request, settings: SettingsDep) -> Response:
+    """Render the dashboard overview listing all engines."""
+    rows = db.list_engines(settings.db_path)
+    engine_list = [EngineSummary(engine_id=r.engine_id, n_cycles=r.n_cycles) for r in rows]
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "engines": engine_list},
+    )
+
+
+@app.get("/engines/{engine_id}")
+def engine_detail(engine_id: int, request: Request, settings: SettingsDep) -> Response:
+    """Render detailed view with RUL model trajectory and normalized sensor telemetry."""
+    latest = db.latest_features(settings.db_path, engine_id)
+    if latest is None:
+        raise HTTPException(status_code=404, detail=f"Engine {engine_id} not found")
+
+    model = _cached_model(str(settings.model_path))
+    current_rul = predict_rul(model, latest.values)
+
+    history = db.get_engine_history(Path(settings.db_path), engine_id)
+    if not history:
+        raise HTTPException(status_code=404, detail=f"No telemetry found for Engine {engine_id}")
+
+    cycles = [h["cycle"] for h in history]
+    sensor_cols = [f"s{i}" for i in range(1, 22)]
+
+    # Compute data-driven trajectory anchored to the current model prediction
+    rul_trajectory = [
+        round(max(0.0, float(current_rul + (latest.cycle - h["cycle"]))), 2)
+        for h in history
+    ]
+
+    # Apply per-sensor Min-Max normalization [0, 1] for multi-sensor display scaling
+    normalized_sensors = {}
+    raw_sensors = {}
+    for col in sensor_cols:
+        vals = [h[col] for h in history]
+        raw_sensors[col] = vals
+        v_min, v_max = min(vals), max(vals)
+        if v_max > v_min:
+            normalized_sensors[col] = [round((v - v_min) / (v_max - v_min), 4) for v in vals]
+        else:
+            normalized_sensors[col] = [0.0 for _ in vals]
+
+    return templates.TemplateResponse(
+        "engine.html",
+        {
+            "request": request,
+            "engine_id": engine_id,
+            "cycle": latest.cycle,
+            "predicted_rul": current_rul,
+            "cycles": cycles,
+            "sensors_data": normalized_sensors,
+            "raw_sensors": raw_sensors,
+            "rul_trajectory": rul_trajectory,
+        },
+    )
