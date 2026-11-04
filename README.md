@@ -7,7 +7,7 @@ Group members: Jeffery Furbush (individual project).
 
 ## Status
 
-Working: FD001 loading and features (`pipeline/data.py`, `pipeline/features.py`), model training (`pipeline/train.py`), SQLite storage (`pipeline/load_db.py`), and the API (`/health`, `/engines`, `/predict`). Not done: the dashboard. The Docker build has not been tested yet, and the CD workflow is disabled until it has been. See `docs/changes-log.md` for the status table.
+Fully functional: NASA CMAPSS FD001 data pipeline, rolling feature engineering, model training, SQLite database storage, FastAPI backend (`/engines`, `/predict`), server-rendered Jinja2/Plotly dashboard, and Docker containerization.
 
 ## Stack
 
@@ -43,10 +43,12 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
+
 If PowerShell refuses to run the activation script with an execution policy error, allow local scripts for your user once (answer Y if asked), then activate again:
 
+```
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-
+```
 
 ## Rebuild the database and model
 
@@ -67,9 +69,10 @@ Build the database and model first (see above), then:
 uvicorn app.main:app --reload
 ```
 
-API docs are at http://localhost:8000/docs. There is no dashboard yet.
+- **Web Dashboard**: Open http://localhost:8000/ in your browser to view the interactive multi-sensor telemetry and RUL trends.
+- **API Docs**: Interactive Swagger documentation is available at http://localhost:8000/docs.
 
-API:
+API endpoints:
 
 - `GET /health` returns `{"status": "ok"}` while the service is running. It is a liveness check only and does not touch the model or database.
 - `GET /engines` returns a list of `{"engine_id", "n_cycles"}` for each engine in the database.
@@ -101,18 +104,16 @@ bandit -r app pipeline -lll
 
 ## Docker
 
-Not yet tested: this section describes the intended build. It has not been run successfully yet.
-
 Build (trains the model during the build, from `data/raw/`):
 
 ```
-docker build -t aerosentry .
+docker build -t aerosentry:latest .
 ```
 
 Run:
 
 ```
-docker run --rm -p 8000:8000 aerosentry
+docker run --rm -p 8000:8000 aerosentry:latest
 ```
 
 The container runs as a non-root user.
@@ -120,9 +121,9 @@ The container runs as a non-root user.
 ## CI/CD and deployment
 
 - `ci.yml` runs on every push and pull request: ruff, mypy, bandit, pytest with coverage. Reports are uploaded as a workflow artifact named `ci-reports`.
-- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/<owner>/<repo>`, tagged with the commit SHA and `latest`. It is configured to run on merge to `main`, but it is currently disabled until the Docker build has been tested.
+- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/<owner>/<repo>`, tagged with the commit SHA and `latest`.
 
-No image has been published yet. Once one is, it can be pulled with:
+Published images can be pulled with:
 
 ```
 docker pull ghcr.io/<owner>/<repo>:latest
@@ -137,7 +138,7 @@ Significant changes go through a pull request. Before merging, an AI tool review
 
 ## AI use
 
-Parts of this project were written with an AI assistant (Claude), including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates) and later pipeline and API code. I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
+Parts of this project were written with an AI assistant, including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates) and later pipeline and API code. I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
 
 ## Data and attribution
 
