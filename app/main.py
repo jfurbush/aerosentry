@@ -155,8 +155,7 @@ def engine_detail(engine_id: int, request: Request, settings: SettingsDep) -> Re
 
     # Compute data-driven trajectory anchored to the current model prediction
     rul_trajectory = [
-        round(max(0.0, float(current_rul + (latest.cycle - h["cycle"]))), 2)
-        for h in history
+        round(max(0.0, float(current_rul + (latest.cycle - h["cycle"]))), 2) for h in history
     ]
 
     # Apply per-sensor Min-Max normalization [0, 1] for multi-sensor display scaling
