@@ -43,6 +43,10 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
+If PowerShell refuses to run the activation script with an execution policy error, allow local scripts for your user once (answer Y if asked), then activate again:
+
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
 
 ## Rebuild the database and model
 
