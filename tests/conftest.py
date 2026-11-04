@@ -1,11 +1,14 @@
 """Shared fixtures: a small synthetic CMAPSS-style dataset so tests do not need FD001."""
 
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import pytest
 
 from pipeline.data import SENSOR_COLUMNS
+from pipeline.load_db import build_database
+from pipeline.train import train
 
 
 def _engine_rows(engine_id: int, n_cycles: int, rng: np.random.Generator) -> list[str]:
@@ -49,3 +52,23 @@ def write_synthetic_raw_dir(root: Path) -> Path:
 @pytest.fixture
 def synthetic_raw_dir(tmp_path: Path) -> Path:
     return write_synthetic_raw_dir(tmp_path / "raw")
+
+
+class Artifacts(NamedTuple):
+    db_path: Path
+    model_path: Path
+
+
+@pytest.fixture
+def artifacts(synthetic_raw_dir: Path, tmp_path: Path) -> Artifacts:
+    """A small database and a small trained model built by the real pipeline code."""
+    db_path = tmp_path / "aerosentry.db"
+    model_path = tmp_path / "rul_model.joblib"
+    build_database(synthetic_raw_dir, db_path)
+    train(
+        raw_dir=synthetic_raw_dir,
+        model_path=model_path,
+        metrics_path=tmp_path / "metrics.json",
+        n_estimators=10,
+    )
+    return Artifacts(db_path=db_path, model_path=model_path)
