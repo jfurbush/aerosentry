@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from app.db import DatabaseUnavailable, connect, latest_features, list_engines
+from app.db import (
+    SENSOR_COLUMNS,
+    DatabaseUnavailable,
+    connect,
+    get_engine_history,
+    latest_features,
+    list_engines,
+)
 from pipeline.features import feature_columns
 from tests.conftest import Artifacts
 
@@ -48,3 +55,28 @@ def test_database_without_the_expected_tables_is_reported(tmp_path: Path) -> Non
 def test_connection_is_read_only(artifacts: Artifacts) -> None:
     with connect(artifacts.db_path) as conn, pytest.raises(sqlite3.OperationalError):
         conn.execute("CREATE TABLE should_fail (a INTEGER)")
+
+
+def test_history_has_every_cycle_in_order_with_all_21_sensors(artifacts: Artifacts) -> None:
+    history = get_engine_history(artifacts.db_path, 2)
+    assert [row["cycle"] for row in history] == list(range(1, 151))
+    assert set(history[0]) == {"cycle", *SENSOR_COLUMNS}
+    assert len(SENSOR_COLUMNS) == 21
+
+
+def test_history_for_unknown_engine_is_empty(artifacts: Artifacts) -> None:
+    assert get_engine_history(artifacts.db_path, 999) == []
+
+
+def test_history_on_missing_database_is_reported_and_not_created(tmp_path: Path) -> None:
+    missing = tmp_path / "nope.db"
+    with pytest.raises(DatabaseUnavailable):
+        get_engine_history(missing, 1)
+    assert not missing.exists()
+
+
+def test_history_without_the_readings_table_is_reported(tmp_path: Path) -> None:
+    empty = tmp_path / "empty.db"
+    sqlite3.connect(empty).close()
+    with pytest.raises(DatabaseUnavailable):
+        get_engine_history(empty, 1)

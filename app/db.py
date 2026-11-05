@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+SENSOR_COLUMNS = tuple(f"s{i}" for i in range(1, 22))
+
 
 class DatabaseUnavailable(Exception):
     """The database file is missing, unreadable, or does not have the expected tables."""
@@ -75,17 +77,17 @@ def latest_features(db_path: Path, engine_id: int) -> LatestFeatures | None:
 
 
 def get_engine_history(db_path: Path, engine_id: int) -> list[dict[str, Any]]:
-    """Retrieve all historical readings for a specific engine ordered by cycle."""
-    import sqlite3
+    """Return every recorded cycle for an engine, oldest first, with all 21 sensor values.
 
-    sensor_cols = [f"s{i}" for i in range(1, 22)]
-    cols_query = ", ".join(sensor_cols)
-
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(
-            f"SELECT cycle, {cols_query} FROM readings WHERE engine_id = ? ORDER BY cycle ASC",  # noqa: S608
-            (engine_id,),
-        )
-        return [dict(row) for row in cursor.fetchall()]
+    Uses the same read-only connection as the other queries, so a missing file is reported
+    as DatabaseUnavailable and is never created. An unknown engine gives an empty list.
+    """
+    try:
+        with connect(db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM readings WHERE engine_id = ? ORDER BY cycle ASC",
+                (engine_id,),
+            ).fetchall()
+    except sqlite3.Error as exc:
+        raise DatabaseUnavailable(f"cannot read readings from {db_path}: {exc}") from exc
+    return [{key: row[key] for key in ("cycle", *SENSOR_COLUMNS)} for row in rows]
