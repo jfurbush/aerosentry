@@ -124,6 +124,14 @@ def test_detail_rejects_a_non_integer_engine_id(client: TestClient) -> None:
     assert set(response.json()) == {"detail"}
 
 
+@pytest.mark.parametrize("engine_id", ["0", "-1", "2147483648", "99999999999999999999"])
+def test_detail_rejects_engine_ids_outside_the_valid_range(
+    client: TestClient, engine_id: str
+) -> None:
+    response = client.get(f"/engines/{engine_id}")
+    assert response.status_code == 422
+
+
 def test_detail_reports_unavailable_database(client_without_db: TestClient) -> None:
     response = client_without_db.get("/engines/1")
     assert response.status_code == 503

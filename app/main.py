@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,7 +15,13 @@ from fastapi.templating import Jinja2Templates
 from app import db
 from app.config import Settings, get_settings
 from app.model import ModelUnavailable, PredictionError, RulModel, load_model, predict_rul
-from app.schemas import EngineSummary, ErrorResponse, PredictRequest, PredictResponse
+from app.schemas import (
+    MAX_ENGINE_ID,
+    EngineSummary,
+    ErrorResponse,
+    PredictRequest,
+    PredictResponse,
+)
 
 logger = logging.getLogger("aerosentry")
 
@@ -137,7 +144,11 @@ def dashboard_home(request: Request, settings: SettingsDep) -> Response:
 
 
 @app.get("/engines/{engine_id}")
-def engine_detail(engine_id: int, request: Request, settings: SettingsDep) -> Response:
+def engine_detail(
+    engine_id: Annotated[int, PathParam(ge=1, le=MAX_ENGINE_ID)],
+    request: Request,
+    settings: SettingsDep,
+) -> Response:
     """Render detailed view with RUL model trajectory and normalized sensor telemetry."""
     latest = db.latest_features(settings.db_path, engine_id)
     if latest is None:

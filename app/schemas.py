@@ -4,10 +4,12 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# A whole number from 1 up to the largest 32-bit integer. Strict means "1" and 1.0 are rejected.
+MAX_ENGINE_ID = 2_147_483_647  # the largest 32-bit integer, so SQLite can never overflow
+
+# A whole number from 1 up to MAX_ENGINE_ID. Strict means "1" and 1.0 are rejected.
 EngineId = Annotated[
     int,
-    Field(strict=True, ge=1, le=2_147_483_647, description="Engine ID, a positive whole number"),
+    Field(strict=True, ge=1, le=MAX_ENGINE_ID, description="Engine ID, a positive whole number"),
 ]
 
 
