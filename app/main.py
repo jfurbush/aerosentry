@@ -1,6 +1,8 @@
 """AeroSentry FastAPI application: engine list, RUL prediction, and dashboard (FR-6 to FR-12)."""
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
@@ -25,9 +27,32 @@ from app.schemas import (
 
 logger = logging.getLogger("aerosentry")
 
+
+@lru_cache(maxsize=2)
+def _cached_model(path: str) -> RulModel:
+    """Load the model once per path. Failures are not cached, so a fixed file is picked up."""
+    return load_model(Path(path))
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Load the model before serving, so the first request does not pay for it (NFR-2).
+
+    A missing or unreadable model does not stop the app. The engine list and the error
+    responses still work, and prediction requests keep returning 503 and retry the load.
+    """
+    path = get_settings().model_path
+    try:
+        _cached_model(str(path))
+    except ModelUnavailable as exc:
+        logger.warning("Model not loaded at startup; predictions will return 503: %s", exc)
+    yield
+
+
 app = FastAPI(
     title="AeroSentry",
     version="0.1.0",
+    lifespan=lifespan,
     description=(
         "Estimates Remaining Useful Life (RUL), in operating cycles, for turbofan engines "
         "in the simulated NASA CMAPSS FD001 dataset. Every error response has the shape "
@@ -48,12 +73,6 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 _UNAVAILABLE: dict[int | str, dict[str, Any]] = {
     503: {"model": ErrorResponse, "description": "Database or model unavailable"}
 }
-
-
-@lru_cache(maxsize=2)
-def _cached_model(path: str) -> RulModel:
-    """Load the model once per path. Failures are not cached, so a fixed file is picked up."""
-    return load_model(Path(path))
 
 
 def _error(status_code: int, message: str) -> JSONResponse:
