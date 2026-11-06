@@ -50,6 +50,14 @@ def test_bundle_without_the_expected_keys_is_reported(tmp_path: Path) -> None:
         load_model(odd)
 
 
+def test_bundle_whose_model_is_not_an_estimator_is_reported(tmp_path: Path) -> None:
+    """The right keys but the wrong object must be ModelUnavailable, not an AttributeError."""
+    odd = tmp_path / "wrong-object.joblib"
+    joblib.dump({"model": object(), "feature_columns": ["a"], "rul_clip": 125}, odd)
+    with pytest.raises(ModelUnavailable, match="get_params"):
+        load_model(odd)
+
+
 def test_prediction_is_in_range_and_rounded_to_one_decimal(artifacts: Artifacts) -> None:
     model = load_model(artifacts.model_path)
     latest = latest_features(artifacts.db_path, 1)
