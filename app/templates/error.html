@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Aerosentry - {{ heading }}{% endblock %}
+{% block content %}
+<div class="panel error-panel" role="alert">
+    <p class="error-code">Error {{ status_code }}</p>
+    <h1 class="page-title">{{ heading }}</h1>
+    <p class="error-message">{{ message }}</p>
+    <p><a href="/" class="button">Back to the engine list</a></p>
+</div>
+{% endblock %}
