@@ -1,46 +1,46 @@
 {% extends "base.html" %}
 {% block title %}Aerosentry - Engine {{ engine_id }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex justify-between items-center">
+<div class="page-head">
     <div>
-        <a href="/" class="text-xs text-emerald-400 hover:underline">&larr; Back to Fleet Overview</a>
-        <h1 class="text-2xl font-semibold mt-1">Engine {{ engine_id }} Telemetry & RUL Analysis</h1>
-        <p class="text-gray-400 text-sm">Current Operating Cycle: <span class="text-gray-200 font-medium">{{ cycle }}</span></p>
+        <a href="/" class="back-link">&larr; Back to Fleet Overview</a>
+        <h1 class="page-title">Engine {{ engine_id }} Telemetry & RUL Analysis</h1>
+        <p class="muted">Current Operating Cycle: <span class="cell-soft">{{ cycle }}</span></p>
     </div>
-    <div class="bg-gray-800 border border-gray-700 px-5 py-3 rounded-lg shadow-lg text-right">
-        <div class="text-xs text-gray-400 uppercase tracking-wider">Predicted RUL</div>
-        <div class="text-2xl font-bold text-emerald-400">{{ "%.1f"|format(predicted_rul) }} <span class="text-sm font-normal text-gray-400">cycles</span></div>
+    <div class="rul-card">
+        <div class="rul-label">Predicted RUL</div>
+        <div class="rul-value">{{ "%.1f"|format(predicted_rul) }} <span class="rul-unit">cycles</span></div>
     </div>
 </div>
 
-<div class="space-y-6">
+<div class="stack">
     <!-- Chart 1: RUL Trajectory Plot -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 shadow-xl">
-        <h2 class="text-lg font-medium text-gray-200 mb-2">Remaining Useful Life (RUL) Trajectory</h2>
-        <div id="rul-chart" class="w-full h-80"></div>
+    <div class="panel">
+        <h2 class="panel-title">Remaining Useful Life (RUL) Trajectory</h2>
+        <div id="rul-chart" class="chart chart-medium"></div>
     </div>
 
     <!-- Chart 2: Interactive Multi-Sensor Telemetry -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 shadow-xl">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-medium text-gray-200">Multi-Sensor Telemetry (Select Sensors to Plot)</h2>
-            <span class="text-xs text-gray-400">NASA CMAPSS Sensors 1–21</span>
+    <div class="panel">
+        <div class="section-head">
+            <h2 class="panel-title">Multi-Sensor Telemetry (Select Sensors to Plot)</h2>
+            <span class="muted small">NASA CMAPSS Sensors 1&ndash;21</span>
         </div>
 
         <!-- Sensor Checkbox Grid -->
-        <div class="grid grid-cols-7 gap-2 bg-gray-900/50 p-4 rounded-lg border border-gray-700 mb-4 text-xs">
+        <div class="sensor-grid">
             {% for i in range(1, 22) %}
             {% set s_name = 's' ~ i %}
-            <label class="flex items-center space-x-2 text-gray-300 cursor-pointer hover:text-emerald-400">
-                <input type="checkbox" name="sensor-toggle" value="{{ s_name }}" 
+            <label class="sensor-option">
+                <input type="checkbox" name="sensor-toggle" value="{{ s_name }}"
                     {% if i in [2, 3, 4, 7, 11, 12] %}checked{% endif %}
-                    class="rounded bg-gray-800 border-gray-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-900 sensor-checkbox">
+                    class="sensor-checkbox">
                 <span>Sensor {{ i }}</span>
             </label>
             {% endfor %}
         </div>
 
-        <div id="sensor-chart" class="w-full h-96"></div>
+        <div id="sensor-chart" class="chart chart-large"></div>
     </div>
 </div>
 
