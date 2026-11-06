@@ -16,7 +16,14 @@ from fastapi.templating import Jinja2Templates
 
 from app import db
 from app.config import Settings, get_settings
-from app.model import ModelUnavailable, PredictionError, RulModel, load_model, predict_rul
+from app.model import (
+    ModelUnavailable,
+    PredictionError,
+    RulModel,
+    load_model,
+    predict_rul,
+    predict_rul_series,
+)
 from app.schemas import (
     MAX_ENGINE_ID,
     EngineSummary,
@@ -223,8 +230,8 @@ def engine_detail(
     settings: SettingsDep,
 ) -> Response:
     """Render one engine: its predicted RUL and one chosen sensor over its cycles (FR-10, FR-11)."""
-    latest = db.latest_features(settings.db_path, engine_id)
-    if latest is None:
+    features = db.feature_history(settings.db_path, engine_id)
+    if not features:
         return _error_page(
             request,
             404,
@@ -233,7 +240,10 @@ def engine_detail(
         )
 
     model = _cached_model(str(settings.model_path))
-    current_rul = predict_rul(model, latest.values)
+    # The model's prediction at every recorded cycle. The last one is the engine's current RUL,
+    # the same number /predict returns.
+    rul_by_cycle = predict_rul_series(model, [row.values for row in features])
+    current_rul = rul_by_cycle[-1]
 
     history = db.get_engine_history(Path(settings.db_path), engine_id)
     if not history:
@@ -258,9 +268,14 @@ def engine_detail(
         "engine.html",
         {
             "engine_id": engine_id,
-            "cycle": latest.cycle,
+            "cycle": features[-1].cycle,
             "predicted_rul": current_rul,
             "rul_cap": model.rul_clip,
+            "rul_chart": {
+                "cycles": [row.cycle for row in features],
+                "rul": rul_by_cycle,
+                "cap": model.rul_clip,
+            },
             "chart": chart,
             "default_sensor": DEFAULT_SENSOR,
             "sensor_options": options,

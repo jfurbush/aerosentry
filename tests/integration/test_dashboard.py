@@ -12,8 +12,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings, get_settings
+from app.db import feature_history
 from app.main import app
-from app.model import PredictionError
+from app.model import PredictionError, load_model, predict_rul
 from app.sensors import DEFAULT_SENSOR, SENSORS
 from tests.conftest import Artifacts
 
@@ -105,6 +106,48 @@ def test_detail_has_no_made_up_rul_trajectory(client: TestClient) -> None:
     response = client.get("/engines/1")
     assert "Trajectory" not in response.text
     assert "rul_trajectory" not in response.context  # type: ignore[attr-defined]
+
+
+def test_detail_charts_the_models_prediction_at_every_cycle(
+    artifacts: Artifacts, client: TestClient
+) -> None:
+    response = client.get("/engines/3")
+    context = response.context  # type: ignore[attr-defined]
+    rul_chart = context["rul_chart"]
+    expected = [f.values for f in feature_history(artifacts.db_path, 3)]
+    model = load_model(artifacts.model_path)
+    assert rul_chart["cycles"] == list(range(1, 101))
+    assert rul_chart["rul"] == [predict_rul(model, values) for values in expected]
+    assert rul_chart["cap"] == context["rul_cap"]
+    assert all(0.0 <= value <= rul_chart["cap"] for value in rul_chart["rul"])
+
+
+def test_the_last_chart_point_is_the_rul_the_api_returns(client: TestClient) -> None:
+    for engine_id in (1, 2, 3):
+        predicted = client.post("/predict", json={"engine_id": engine_id}).json()["predicted_rul"]
+        response = client.get(f"/engines/{engine_id}")
+        assert response.context["rul_chart"]["rul"][-1] == predicted  # type: ignore[attr-defined]
+        assert response.context["predicted_rul"] == predicted  # type: ignore[attr-defined]
+
+
+def test_the_rul_chart_says_it_is_a_prediction_with_unmeasured_earlier_error(
+    client: TestClient,
+) -> None:
+    text = " ".join(client.get("/engines/1").text.split())
+    assert "Predicted RUL by operating cycle" in text
+    assert "predictions, not measured values" in text
+    assert "only at the last recorded cycle of each test engine" in text
+    assert "rolling inputs use only the cycles recorded so far" in text
+
+
+def test_detail_without_stored_features_is_a_404_page(
+    artifacts: Artifacts, client: TestClient
+) -> None:
+    with closing(sqlite3.connect(artifacts.db_path)) as conn:
+        conn.execute("DELETE FROM features WHERE engine_id = 1")
+        conn.commit()
+    response = client.get("/engines/1")
+    _assert_error_page(response, 404, "Engine 1 was not found")
 
 
 def test_detail_offers_all_21_sensors_with_names_and_units(client: TestClient) -> None:
@@ -210,7 +253,7 @@ def test_detail_reports_a_model_database_mismatch_with_a_page(
     def fail(*_: object, **__: object) -> float:
         raise PredictionError("columns do not match")
 
-    monkeypatch.setattr("app.main.predict_rul", fail)
+    monkeypatch.setattr("app.main.predict_rul_series", fail)
     response = client.get("/engines/1")
     _assert_error_page(response, 500, "model and the database do not match")
 
