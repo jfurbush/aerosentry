@@ -4,17 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Aerosentry Dashboard{% endblock %}</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Plotly.js CDN -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- Styles and Plotly are served by this app, so the dashboard works without internet access. -->
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/vendor/plotly-basic-2.27.0.min.js"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-    <nav class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
-        <a href="/" class="text-xl font-bold tracking-wider text-emerald-400">AEROSENTRY</a>
-        <span class="text-xs text-gray-400 bg-gray-700 px-2.5 py-1 rounded">NASA CMAPSS FD001</span>
+<body>
+    <nav class="nav">
+        <a href="/" class="brand">AEROSENTRY</a>
+        <span class="tag">NASA CMAPSS FD001</span>
     </nav>
-    <main class="container mx-auto px-6 py-8">
+    <main class="page">
         {% block content %}{% endblock %}
     </main>
 </body>
