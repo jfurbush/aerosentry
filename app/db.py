@@ -60,6 +60,11 @@ def list_engines(db_path: Path) -> list[EngineRow]:
     return [EngineRow(engine_id=int(r["engine_id"]), n_cycles=int(r["n_cycles"])) for r in rows]
 
 
+def _features_from_row(row: sqlite3.Row) -> LatestFeatures:
+    values = {key: row[key] for key in row.keys() if key not in ("engine_id", "cycle")}  # noqa: SIM118
+    return LatestFeatures(engine_id=int(row["engine_id"]), cycle=int(row["cycle"]), values=values)
+
+
 def latest_features(db_path: Path, engine_id: int) -> LatestFeatures | None:
     """Return the precomputed features for an engine's latest cycle, or None if unknown."""
     try:
@@ -70,10 +75,23 @@ def latest_features(db_path: Path, engine_id: int) -> LatestFeatures | None:
             ).fetchone()
     except sqlite3.Error as exc:
         raise DatabaseUnavailable(f"cannot read features from {db_path}: {exc}") from exc
-    if row is None:
-        return None
-    values = {key: row[key] for key in row.keys() if key not in ("engine_id", "cycle")}  # noqa: SIM118
-    return LatestFeatures(engine_id=int(row["engine_id"]), cycle=int(row["cycle"]), values=values)
+    return None if row is None else _features_from_row(row)
+
+
+def feature_history(db_path: Path, engine_id: int) -> list[LatestFeatures]:
+    """Return the precomputed features for every recorded cycle of an engine, oldest first.
+
+    An unknown engine gives an empty list.
+    """
+    try:
+        with connect(db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM features WHERE engine_id = ? ORDER BY cycle ASC",
+                (engine_id,),
+            ).fetchall()
+    except sqlite3.Error as exc:
+        raise DatabaseUnavailable(f"cannot read features from {db_path}: {exc}") from exc
+    return [_features_from_row(row) for row in rows]
 
 
 def get_engine_history(db_path: Path, engine_id: int) -> list[dict[str, Any]]:
