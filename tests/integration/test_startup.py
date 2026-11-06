@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterator
 from pathlib import Path
 
+import joblib
 import pytest
 from fastapi.testclient import TestClient
 
@@ -77,3 +78,14 @@ def test_a_model_fixed_after_startup_is_picked_up(
         assert client.post("/predict", json={"engine_id": 1}).status_code == 503
         target.write_bytes(artifacts.model_path.read_bytes())
         assert client.post("/predict", json={"engine_id": 1}).status_code == 200
+
+
+def test_a_model_file_holding_the_wrong_object_does_not_stop_startup(
+    artifacts: Artifacts, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wrong = tmp_path / "wrong-object.joblib"
+    joblib.dump({"model": object(), "feature_columns": ["a"], "rul_clip": 125}, wrong)
+    _use(monkeypatch, Settings(artifacts.db_path, wrong))
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+        assert client.post("/predict", json={"engine_id": 1}).status_code == 503

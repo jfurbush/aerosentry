@@ -37,11 +37,11 @@ def load_model(path: Path) -> RulModel:
         estimator = bundle["model"]
         columns = list(bundle["feature_columns"])
         clip = int(bundle["rul_clip"])
+        # One row at a time is faster on a single thread than spinning up a worker pool.
+        if "n_jobs" in estimator.get_params():
+            estimator.set_params(n_jobs=1)
     except Exception as exc:  # a bad file can fail in many ways, all of which mean "unusable"
         raise ModelUnavailable(f"cannot load model {path}: {exc!r}") from exc
-    # One row at a time is faster on a single thread than spinning up a worker pool.
-    if "n_jobs" in estimator.get_params():
-        estimator.set_params(n_jobs=1)
     return RulModel(estimator=estimator, feature_columns=columns, rul_clip=clip)
 
 
