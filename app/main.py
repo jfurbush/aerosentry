@@ -24,6 +24,7 @@ from app.schemas import (
     PredictRequest,
     PredictResponse,
 )
+from app.sensors import DEFAULT_SENSOR, MOVING_AVERAGE_WINDOW, SENSORS, moving_average
 
 logger = logging.getLogger("aerosentry")
 
@@ -75,6 +76,30 @@ _UNAVAILABLE: dict[int | str, dict[str, Any]] = {
 }
 
 
+DATABASE_UNAVAILABLE = "The engine database is unavailable. Try again later."
+MODEL_UNAVAILABLE = "The prediction model is unavailable. Try again later."
+PREDICTION_MISMATCH = (
+    "The prediction failed because the model and the database do not match. "
+    "Rebuild both with the pipeline commands in the README."
+)
+
+
+def _is_dashboard_page(request: Request) -> bool:
+    """The HTML pages are "/" and "/engines/{id}". Every other path answers in JSON."""
+    path = request.url.path
+    return path == "/" or path.startswith("/engines/")
+
+
+def _error_page(request: Request, status_code: int, heading: str, message: str) -> Response:
+    """A readable error page with a link back to the engine list (FR-12)."""
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {"status_code": status_code, "heading": heading, "message": message},
+        status_code=status_code,
+    )
+
+
 def _error(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"detail": message})
 
@@ -87,31 +112,42 @@ def _describe(problem: Any) -> str:
 
 
 @app.exception_handler(RequestValidationError)
-async def malformed_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def malformed_request(request: Request, exc: RequestValidationError) -> Response:
+    if _is_dashboard_page(request):
+        entered = request.url.path.rsplit("/", 1)[-1]
+        shown = entered if len(entered) <= 40 else entered[:40] + "..."
+        return _error_page(
+            request,
+            422,
+            "Invalid engine ID",
+            f'"{shown}" is not a valid engine ID. Choose an engine from the list.',
+        )
     problems = "; ".join(_describe(p) for p in exc.errors())
     return _error(422, f'Malformed request: {problems}. Send JSON like {{"engine_id": 1}}.')
 
 
 @app.exception_handler(db.DatabaseUnavailable)
-async def database_unavailable(request: Request, exc: db.DatabaseUnavailable) -> JSONResponse:
+async def database_unavailable(request: Request, exc: db.DatabaseUnavailable) -> Response:
     logger.error("Database unavailable: %s", exc)
-    return _error(503, "The engine database is unavailable. Try again later.")
+    if _is_dashboard_page(request):
+        return _error_page(request, 503, "Service unavailable", DATABASE_UNAVAILABLE)
+    return _error(503, DATABASE_UNAVAILABLE)
 
 
 @app.exception_handler(ModelUnavailable)
-async def model_unavailable(request: Request, exc: ModelUnavailable) -> JSONResponse:
+async def model_unavailable(request: Request, exc: ModelUnavailable) -> Response:
     logger.error("Model unavailable: %s", exc)
-    return _error(503, "The prediction model is unavailable. Try again later.")
+    if _is_dashboard_page(request):
+        return _error_page(request, 503, "Service unavailable", MODEL_UNAVAILABLE)
+    return _error(503, MODEL_UNAVAILABLE)
 
 
 @app.exception_handler(PredictionError)
-async def prediction_failed(request: Request, exc: PredictionError) -> JSONResponse:
+async def prediction_failed(request: Request, exc: PredictionError) -> Response:
     logger.error("Prediction failed: %s", exc)
-    return _error(
-        500,
-        "The prediction failed because the model and the database do not match. "
-        "Rebuild both with the pipeline commands in the README.",
-    )
+    if _is_dashboard_page(request):
+        return _error_page(request, 500, "Prediction failed", PREDICTION_MISMATCH)
+    return _error(500, PREDICTION_MISMATCH)
 
 
 def health_status() -> dict[str, str]:
@@ -153,13 +189,31 @@ def predict(body: PredictRequest, settings: SettingsDep) -> PredictResponse:
 
 @app.get("/")
 def dashboard_home(request: Request, settings: SettingsDep) -> Response:
-    """Render the dashboard overview listing all engines."""
+    """Render the dashboard overview listing all engines (FR-9)."""
     rows = db.list_engines(settings.db_path)
     engine_list = [EngineSummary(engine_id=r.engine_id, n_cycles=r.n_cycles) for r in rows]
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "engines": engine_list},
-    )
+    return templates.TemplateResponse(request, "index.html", {"engines": engine_list})
+
+
+def _sensor_chart_data(history: list[dict[str, Any]]) -> dict[str, Any]:
+    """Raw readings, their moving average and unit labels for every sensor of one engine."""
+    sensors: dict[str, Any] = {}
+    for sensor in SENSORS:
+        raw = [float(row[sensor.column]) for row in history]
+        constant = min(raw) == max(raw)
+        sensors[sensor.column] = {
+            "axis_title": sensor.axis_title,
+            "hover_unit": sensor.hover_unit,
+            "raw": raw,
+            "average": moving_average(raw),
+            "constant": constant,
+            "constant_value": raw[0] if constant else None,
+        }
+    return {
+        "cycles": [row["cycle"] for row in history],
+        "window": MOVING_AVERAGE_WINDOW,
+        "sensors": sensors,
+    }
 
 
 @app.get("/engines/{engine_id}")
@@ -168,48 +222,47 @@ def engine_detail(
     request: Request,
     settings: SettingsDep,
 ) -> Response:
-    """Render detailed view with RUL model trajectory and normalized sensor telemetry."""
+    """Render one engine: its predicted RUL and one chosen sensor over its cycles (FR-10, FR-11)."""
     latest = db.latest_features(settings.db_path, engine_id)
     if latest is None:
-        raise HTTPException(status_code=404, detail=f"Engine {engine_id} not found")
+        return _error_page(
+            request,
+            404,
+            "Engine not found",
+            f"Engine {engine_id} was not found. Choose an engine from the list.",
+        )
 
     model = _cached_model(str(settings.model_path))
     current_rul = predict_rul(model, latest.values)
 
     history = db.get_engine_history(Path(settings.db_path), engine_id)
     if not history:
-        raise HTTPException(status_code=404, detail=f"No telemetry found for Engine {engine_id}")
+        return _error_page(
+            request,
+            404,
+            "No telemetry",
+            f"No telemetry found for Engine {engine_id}. It has no recorded sensor readings.",
+        )
 
-    cycles = [h["cycle"] for h in history]
-    sensor_cols = [f"s{i}" for i in range(1, 22)]
-
-    # Compute data-driven trajectory anchored to the current model prediction
-    rul_trajectory = [
-        round(max(0.0, float(current_rul + (latest.cycle - h["cycle"]))), 2) for h in history
+    chart = _sensor_chart_data(history)
+    options = [
+        {
+            "column": sensor.column,
+            "label": sensor.label,
+            "constant": chart["sensors"][sensor.column]["constant"],
+        }
+        for sensor in SENSORS
     ]
-
-    # Apply per-sensor Min-Max normalization [0, 1] for multi-sensor display scaling
-    normalized_sensors = {}
-    raw_sensors = {}
-    for col in sensor_cols:
-        vals = [h[col] for h in history]
-        raw_sensors[col] = vals
-        v_min, v_max = min(vals), max(vals)
-        if v_max > v_min:
-            normalized_sensors[col] = [round((v - v_min) / (v_max - v_min), 4) for v in vals]
-        else:
-            normalized_sensors[col] = [0.0 for _ in vals]
-
     return templates.TemplateResponse(
+        request,
         "engine.html",
         {
-            "request": request,
             "engine_id": engine_id,
             "cycle": latest.cycle,
             "predicted_rul": current_rul,
-            "cycles": cycles,
-            "sensors_data": normalized_sensors,
-            "raw_sensors": raw_sensors,
-            "rul_trajectory": rul_trajectory,
+            "rul_cap": model.rul_clip,
+            "chart": chart,
+            "default_sensor": DEFAULT_SENSOR,
+            "sensor_options": options,
         },
     )
