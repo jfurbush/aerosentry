@@ -17,6 +17,22 @@
     A value near {{ rul_cap }} means about {{ rul_cap }} cycles or more.
 </p>
 
+<div class="panel rul-panel">
+    <h2 class="panel-title">Predicted RUL by operating cycle</h2>
+    <div id="rul-chart" class="chart chart-medium"></div>
+    <p class="muted small note">
+        Each point is the model's prediction using only the readings up to that cycle, so the line
+        shows what the model would have said at the time. The last point is the predicted RUL above.
+        The model never predicts more than {{ rul_cap }} cycles, so a line near {{ rul_cap }} means
+        it sees at least about {{ rul_cap }} cycles left. For the first 10 cycles the model's
+        rolling inputs use only the cycles recorded so far.
+    </p>
+    <p class="muted small note">
+        These are predictions, not measured values. The model's error was measured only at the last
+        recorded cycle of each test engine, not at the earlier cycles shown here.
+    </p>
+</div>
+
 <div class="panel">
     <div class="section-head">
         <h2 class="panel-title">Sensor readings by operating cycle</h2>
@@ -36,6 +52,39 @@
     <p id="sensor-note" class="muted small note" aria-live="polite"></p>
 </div>
 
+<script id="rul-data" type="application/json">{{ rul_chart|tojson }}</script>
+<script>
+(function () {
+    const rul = JSON.parse(document.getElementById('rul-data').textContent);
+    const grid = { gridcolor: '#374151', zerolinecolor: '#374151', automargin: true };
+    const trace = {
+        x: rul.cycles, y: rul.rul, mode: 'lines', name: 'Predicted RUL',
+        line: { color: '#60a5fa', width: 2.5 },
+        hovertemplate: 'Predicted RUL %{y:.1f} cycles<extra></extra>'
+    };
+    const layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#d1d5db' },
+        margin: { l: 60, r: 20, t: 20, b: 50 },
+        hovermode: 'x unified',
+        showlegend: false,
+        xaxis: Object.assign({ title: { text: 'Operating cycle' } }, grid),
+        yaxis: Object.assign(
+            { title: { text: 'Predicted RUL (cycles)' }, range: [0, rul.cap * 1.08] }, grid),
+        shapes: [{
+            type: 'line', xref: 'paper', x0: 0, x1: 1, y0: rul.cap, y1: rul.cap,
+            line: { color: '#6b7280', width: 1, dash: 'dot' }
+        }],
+        annotations: [{
+            xref: 'paper', x: 1, xanchor: 'right', y: rul.cap, yanchor: 'bottom',
+            text: 'model cap: ' + rul.cap + ' cycles', showarrow: false,
+            font: { size: 11, color: '#9ca3af' }
+        }]
+    };
+    Plotly.react('rul-chart', [trace], layout, { responsive: true, displaylogo: false });
+})();
+</script>
 <script id="chart-data" type="application/json">{{ chart|tojson }}</script>
 <script>
 (function () {

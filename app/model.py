@@ -5,6 +5,7 @@ image the file is created at build time and nothing at runtime can replace it.
 """
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -45,15 +46,27 @@ def load_model(path: Path) -> RulModel:
     return RulModel(estimator=estimator, feature_columns=columns, rul_clip=clip)
 
 
+def predict_rul_series(model: RulModel, rows: Sequence[dict[str, float]]) -> list[float]:
+    """Predict RUL in cycles for several feature rows at once, each kept within 0 and the cap."""
+    if not rows:
+        return []
+    for values in rows:
+        missing = [name for name in model.feature_columns if name not in values]
+        if missing:
+            raise PredictionError(f"stored features are missing model inputs: {missing[:3]}...")
+    frame = pd.DataFrame(
+        [[values[name] for name in model.feature_columns] for values in rows],
+        columns=model.feature_columns,
+    )
+    predictions: list[float] = []
+    for raw in model.estimator.predict(frame):
+        value = float(raw)
+        if math.isnan(value):
+            raise PredictionError("model returned NaN")
+        predictions.append(round(min(max(value, 0.0), float(model.rul_clip)), 1))
+    return predictions
+
+
 def predict_rul(model: RulModel, values: dict[str, float]) -> float:
     """Predict remaining useful life in cycles, kept within 0 and the training cap."""
-    missing = [name for name in model.feature_columns if name not in values]
-    if missing:
-        raise PredictionError(f"stored features are missing model inputs: {missing[:3]}...")
-    row = pd.DataFrame(
-        [[values[name] for name in model.feature_columns]], columns=model.feature_columns
-    )
-    raw = float(model.estimator.predict(row)[0])
-    if math.isnan(raw):
-        raise PredictionError("model returned NaN")
-    return round(min(max(raw, 0.0), float(model.rul_clip)), 1)
+    return predict_rul_series(model, [values])[0]
