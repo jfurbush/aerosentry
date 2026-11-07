@@ -3,6 +3,7 @@ from typing import Any
 
 import joblib
 import numpy as np
+import pandas as pd
 import pytest
 
 from app.db import feature_history, latest_features
@@ -107,6 +108,19 @@ def test_series_matches_one_prediction_per_row(artifacts: Artifacts) -> None:
     model = load_model(artifacts.model_path)
     rows = [f.values for f in feature_history(artifacts.db_path, 1)]
     assert predict_rul_series(model, rows) == [predict_rul(model, values) for values in rows]
+
+
+def test_series_matches_the_estimator_called_directly(artifacts: Artifacts) -> None:
+    """Compare with scikit-learn's own output, not with another path through our code."""
+    model = load_model(artifacts.model_path)
+    rows = [f.values for f in feature_history(artifacts.db_path, 1)]
+    frame = pd.DataFrame(rows)[model.feature_columns]
+    expected = [
+        round(min(max(float(raw), 0.0), model.rul_clip), 1)
+        for raw in model.estimator.predict(frame)
+    ]
+    assert len(expected) == len(rows)
+    assert predict_rul_series(model, rows) == expected
 
 
 def test_series_of_nothing_is_empty() -> None:
