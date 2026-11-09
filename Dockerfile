@@ -1,7 +1,5 @@
 # Stage 1: build the database and the model from raw data (reproducible, NFR-6).
 # The model is trained here, never when the container starts.
-# These commands do nothing until pipeline/load_db.py and pipeline/train.py are implemented,
-# and the COPY steps below will fail loudly if the outputs are missing.
 FROM python:3.11-slim AS builder
 WORKDIR /build
 COPY requirements.txt .
