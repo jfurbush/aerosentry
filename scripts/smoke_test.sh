@@ -2,6 +2,8 @@
 # Smoke test for a running AeroSentry server or container.
 # Usage: scripts/smoke_test.sh [base_url]     (default: http://localhost:8000)
 # Run it from anywhere; it moves to the repository root first.
+# The expected Plotly hash is read from this checkout, so run it from the same commit that the
+# server was built from. A different commit can give a false failure.
 # It checks that the service answers, that the data and model are inside it, and that
 # the vendored Plotly file served by the app is byte for byte the one recorded in the README.
 set -euo pipefail

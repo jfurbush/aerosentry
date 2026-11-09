@@ -24,11 +24,15 @@ defaults:
 
 jobs:
   build-and-push:
-    # Only from main, and only when CI succeeded on a push. A manual run has no CI run to check.
+    # Only from main, and only when CI succeeded on a push to main. For a workflow_run, github.ref is
+    # always the default branch, so the branch of the CI run is checked through head_branch (the
+    # branches filter above does the same). A manual run has no CI run to check.
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

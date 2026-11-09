@@ -51,7 +51,8 @@ jobs:
           path: reports/
 
   docker-smoke-test:
-    # Builds the image the same way CD does, starts it and calls it. Nothing is pushed.
+    # Builds an image from the same Dockerfile and context that CD uses, starts it and calls it.
+    # Nothing is pushed.
     needs: test-and-analyze
     runs-on: ubuntu-latest
     steps:
