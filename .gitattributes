@@ -1,0 +1,4 @@
+# Keep vendored files byte for byte. Without this, Git on Windows (core.autocrlf=true) rewrites
+# their line endings in the working folder, which changes the Plotly checksum and any Docker
+# image built from that folder.
+app/static/vendor/** -text
