@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+# Run every step with bash -eo pipefail, so a failing tool still fails the step when its
+# output is piped into tee.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test-and-analyze:
     runs-on: ubuntu-latest
@@ -42,4 +48,41 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-reports
+          path: reports/
+
+  docker-smoke-test:
+    # Builds the image the same way CD does, starts it and calls it. Nothing is pushed.
+    needs: test-and-analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare report folder
+        run: mkdir -p reports
+
+      - name: Build the image
+        run: docker build -t aerosentry:ci .
+
+      - name: Image size
+        run: docker image ls aerosentry:ci | tee reports/docker-image.txt
+
+      - name: Start the container
+        run: docker run -d --name aerosentry -p 8000:8000 aerosentry:ci
+
+      - name: Smoke test the running container
+        run: bash scripts/smoke_test.sh http://localhost:8000 | tee reports/smoke-test.txt
+
+      - name: Container logs
+        if: always()
+        run: docker logs aerosentry | tee reports/container.log
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f aerosentry
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-reports
           path: reports/
