@@ -1,7 +1,12 @@
 name: CD
 
+# Publishes the image to GitHub Container Registry, but only after CI has passed on main.
+# CI includes the Docker build and smoke test, so an image that does not start is never pushed.
+# A manual run (workflow_dispatch) builds and pushes the current main without waiting for CI.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -13,11 +18,23 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-and-push:
+    # Only from main, and only when CI succeeded on a push. A manual run has no CI run to check.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the exact commit that CI tested, not whatever main has moved to since.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: docker/setup-buildx-action@v3
 
