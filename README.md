@@ -7,7 +7,7 @@ Group members: Jeffery Furbush (individual project).
 
 ## Status
 
-Fully functional: NASA CMAPSS FD001 data pipeline, rolling feature engineering, model training, SQLite database storage, FastAPI backend (`/engines`, `/predict`), server-rendered Jinja2/Plotly dashboard, and Docker containerization.
+Working: the FD001 data pipeline, rolling features, model training, SQLite storage, the FastAPI endpoints (`/health`, `/engines`, `/predict`) and the server-rendered dashboard. CI runs ruff, mypy, bandit and the tests, then builds the Docker image and smoke-tests the running container. The image was pushed to GitHub Container Registry by a manual CD run on 2026-11-09. See `docs/changes-log.md` for the status table.
 
 ## Stack
 
@@ -21,7 +21,8 @@ pipeline/           data.py, features.py, train.py, load_db.py
 models/             trained .joblib (generated)
 data/raw/           CMAPSS FD001 files (committed)
 tests/unit/         unit tests
-tests/integration/  API tests
+tests/integration/  API, dashboard and offline tests
+scripts/            smoke_test.sh, checks a running server or container
 docs/               changes log, report template, ai-review-log/
 .github/workflows/  ci.yml, cd.yml
 ```
@@ -103,6 +104,8 @@ mypy
 bandit -r app pipeline -lll
 ```
 
+CI runs bandit at `-lll` (High severity only). The code is also clean at `-ll` (Medium and up), which is what I run before committing.
+
 ## Docker
 
 Build (trains the model during the build, from `data/raw/`):
@@ -119,16 +122,24 @@ docker run --rm -p 8000:8000 aerosentry:latest
 
 The container runs as a non-root user.
 
-## CI/CD and deployment
-
-- `ci.yml` runs on every push and pull request: ruff, mypy, bandit, pytest with coverage. Reports are uploaded as a workflow artifact named `ci-reports`.
-- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/<owner>/<repo>`, tagged with the commit SHA and `latest`.
-
-Published images can be pulled with:
+Check a running container (needs bash and curl; on Windows use Git Bash or WSL). Run it from the same commit the image was built from:
 
 ```
-docker pull ghcr.io/<owner>/<repo>:latest
-docker run --rm -p 8000:8000 ghcr.io/<owner>/<repo>:latest
+bash scripts/smoke_test.sh http://localhost:8000
+```
+
+It calls `/health`, `/engines`, `/predict`, a missing engine, the dashboard pages and `/static`, and compares the served Plotly file with the checksum recorded in `app/static/vendor/README.md`.
+
+## CI/CD and deployment
+
+- `ci.yml` runs on every push and pull request. Job `test-and-analyze` runs ruff, mypy, bandit (`-lll`) and pytest with a coverage minimum of 80%, and uploads the reports as the artifact `ci-reports`. Job `docker-smoke-test` builds the image, starts the container, runs `scripts/smoke_test.sh` against it and uploads the image size, the smoke test output and the container log as the artifact `docker-reports`. Nothing is pushed.
+- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/jfurbush/aerosentry`, tagged with the commit SHA (`sha-` and the first 7 characters) and `latest`. It is set to start after CI has passed on a push to `main`, and it can also be started by hand from the Actions tab or with `gh workflow run CD --ref main`. A manual run on 2026-11-09 pushed the image, and the package is public.
+
+The published image can be pulled with:
+
+```
+docker pull ghcr.io/jfurbush/aerosentry:latest
+docker run --rm -p 8000:8000 ghcr.io/jfurbush/aerosentry:latest
 ```
 
 A live hosted instance is not part of the core scope.
@@ -139,7 +150,7 @@ Significant changes go through a pull request. Before merging, an AI tool review
 
 ## AI use
 
-Parts of this project were written with an AI assistant, including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates) and later pipeline and API code. I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
+Parts of this project were written with an AI assistant (Claude), including the initial scaffold (folder layout, CI/CD workflows, Dockerfile, templates) and later pipeline and API code. I read, ran and tested what it produced before committing. Every pull request is also reviewed by an AI tool before merging, and the feedback and my response are in `docs/ai-review-log/`.
 
 ## Data and attribution
 
