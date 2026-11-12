@@ -1,0 +1,30 @@
+........................................................................ [ 41%]
+........................................................................ [ 83%]
+.............................                                            [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\testclient.py:40
+  C:\Users\jeffery.furbush\my_stuff\dev\aerosentry\.venv\Lib\site-packages\starlette\testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+---------- coverage: platform win32, python 3.11.9-final-0 -----------
+Name                   Stmts   Miss  Cover   Missing
+----------------------------------------------------
+app\__init__.py            0      0   100%
+app\config.py             12      0   100%
+app\db.py                 61      2    97%   42-43
+app\main.py              119      0   100%
+app\model.py              44      0   100%
+app\schemas.py            16      0   100%
+app\sensors.py            34      0   100%
+pipeline\__init__.py       0      0   100%
+pipeline\data.py          27      0   100%
+pipeline\features.py      34      0   100%
+pipeline\load_db.py       47      1    98%   91
+pipeline\train.py         97      2    98%   133, 223
+----------------------------------------------------
+TOTAL                    491      5    99%
+
+Required test coverage of 80% reached. Total coverage: 98.98%
+173 passed, 1 warning in 39.08s
