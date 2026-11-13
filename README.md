@@ -7,7 +7,7 @@ Group members: Jeffery Furbush (individual project).
 
 ## Status
 
-Working: the FD001 data pipeline, rolling features, model training, SQLite storage, the FastAPI endpoints (`/health`, `/engines`, `/predict`) and the server-rendered dashboard. CI runs ruff, mypy, bandit and the tests, then builds the Docker image and smoke-tests the running container. The image was pushed to GitHub Container Registry by a manual CD run on 2026-11-09. See `docs/changes-log.md` for the status table.
+Working: the FD001 data pipeline, rolling features, model training, SQLite storage, the FastAPI endpoints (`/health`, `/engines`, `/predict`) and the server-rendered dashboard. CI runs ruff, mypy, bandit and the tests, then builds the Docker image and smoke-tests the running container. CD pushes the image to GitHub Container Registry. It was started by hand on 2026-11-09 and has started by itself after CI on `main` since 2026-11-10. I pulled the published image and ran it on Windows on 2026-11-12. See `docs/changes-log.md` for the status table.
 
 ## Stack
 
@@ -133,7 +133,7 @@ It calls `/health`, `/engines`, `/predict`, a missing engine, the dashboard page
 ## CI/CD and deployment
 
 - `ci.yml` runs on every push and pull request. Job `test-and-analyze` runs ruff, mypy, bandit (`-lll`) and pytest with a coverage minimum of 80%, and uploads the reports as the artifact `ci-reports`. Job `docker-smoke-test` builds the image, starts the container, runs `scripts/smoke_test.sh` against it and uploads the image size, the smoke test output and the container log as the artifact `docker-reports`. Nothing is pushed.
-- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/jfurbush/aerosentry`, tagged with the commit SHA (`sha-` and the first 7 characters) and `latest`. It is set to start after CI has passed on a push to `main`, and it can also be started by hand from the Actions tab or with `gh workflow run CD --ref main`. A manual run on 2026-11-09 pushed the image, and the package is public.
+- `cd.yml` builds the Docker image and pushes it to GitHub Container Registry as `ghcr.io/jfurbush/aerosentry`, tagged with the commit SHA (`sha-` and the first 7 characters) and `latest`. It starts after CI has passed on a push to `main` (seen on 2026-11-10 and 2026-11-12), and it can also be started by hand from the Actions tab or with `gh workflow run CD --ref main`. The package is public.
 
 The published image can be pulled with:
 
