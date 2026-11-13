@@ -5,7 +5,7 @@ Repository: https://github.com/jfurbush/aerosentry
 Date: 2026-11-13
 Code state: `main` at 7f71b82. The tests and measurements were run on de1b174, which has the same application code. Copies of the tool output are in `docs/evidence/`.
 
-AeroSentry estimates the remaining useful life (RUL), in operating cycles, of turbofan engines from the simulated NASA CMAPSS FD001 data. It is a FastAPI service with a SQLite database, a random forest model and a server-rendered dashboard, packaged as a Docker image. All 14 functional requirements are implemented. The model test RMSE is 18.6 cycles against a target of 25. Gaps are listed in section 8.
+AeroSentry estimates the remaining useful life (RUL), in operating cycles, of turbofan engines from the simulated NASA CMAPSS FD001 data. It is a FastAPI service with a SQLite database, a random forest model and a server-rendered dashboard, packaged as a Docker image. All 14 functional requirements are implemented (FR-5 with a scope change, see section 2). The model test RMSE is 18.6 cycles against a target of 25. Gaps are listed in section 8.
 
 ## 1. Completed functionality
 
@@ -23,7 +23,7 @@ AeroSentry estimates the remaining useful life (RUL), in operating cycles, of tu
 | FR-10 Predicted RUL and chart over cycles | Done | The page shows the predicted RUL, a sensor chart with a moving average, and a chart of the model's predicted RUL at every cycle. |
 | FR-11 Choose the sensor | Done | One sensor at a time, from all 21 stored sensors. |
 | FR-12 Readable errors | Done | Error pages for an unknown engine and for an unavailable model or database. |
-| FR-13 Docker image | Done | Two-stage build. The image holds the application, the model and the database, runs as a non-root user, and starts with `docker run`. I pulled the published image and ran it on Windows on 2026-11-12. The image is 1.18 GB as `docker image ls` shows it. |
+| FR-13 Docker image | Done | Two-stage build. The image holds the application, the model and the database, runs as a non-root user (`id` inside the container printed `uid=10001(appuser)`), and starts with `docker run`. I pulled the published image and ran it on Windows on 2026-11-12. The image is 1.18 GB as `docker image ls` shows it. Output: `docs/evidence/docker-image.txt`. |
 | FR-14 CI and CD | Done | CI runs on every push and pull request. CD builds and pushes the image after CI passes on a push to `main`. |
 
 ### Non-functional requirements
@@ -35,7 +35,7 @@ AeroSentry estimates the remaining useful life (RUL), in operating cycles, of tu
 | NFR-2 Detail page under 3 s | Met in Chrome | Page load took 374 to 453 ms in 9 loads with the cache off. Not measured in Firefox. |
 | NFR-3 Coverage of at least 80%. All tests pass before a merge | Coverage met. Merge rule partly shown | Coverage is 98.98%. For PRs #26 to #30 I watched the checks go green before merging. I did not check earlier PRs, and I did not check whether branch protection enforces it. |
 | NFR-4 ruff and mypy clean on `main`. Type hints on public functions | Met | Both clean in CI and locally. mypy runs in strict mode on `app/` and `pipeline/`. |
-| NFR-5 No high-severity bandit findings. No secrets. Non-root container. No uploads | Met, with limits | bandit reports no findings at either level. The Dockerfile sets a non-root user, but I did not run `id` in a container. No secret scanner was run. The API takes only an engine ID. |
+| NFR-5 No high-severity bandit findings. No secrets. Non-root container. No uploads | Met, with a limit | bandit reports no findings at either level. The container runs as a non-root user (checked with `id`). No secret scanner was run. The API takes only an engine ID. |
 | NFR-6 Fixed seed. Pinned dependencies. Builds from a clean checkout | Met, with a limit | Seed is 42. The direct dependencies are pinned, the transitive ones are not. CI builds the image from a fresh checkout on every push and pull request. |
 | NFR-7 Python 3.11+ and a Linux container | Met | Python 3.11 on Windows and on the Linux CI runner. Other Python versions were not tested. |
 | NFR-8 Chrome and Firefox. Values labelled in cycles | Chrome only | Chrome 157 on Windows, and Chromium on Linux earlier. Firefox was not tested. The axis labels were checked on engines 1, 97 and 49. |
@@ -83,7 +83,7 @@ The flat 52 ms for `/predict` in the container is probably a fixed delay in the 
 
 - Test-set RMSE on FD001: 18.557 cycles against the clipped true RUL (95% interval 15.0 to 21.9). The target was 25 or less, so it is met.
 - Baseline (predicting the training mean): 41.942 cycles.
-- Against the unclipped true RUL: 19.574, baseline 43.067. Mean absolute error 12.9 cycles. The mean error is +4.0 cycles, so the model overestimates remaining life slightly on average. The largest single error is 60.6 cycles.
+- Against the clipped true RUL: mean absolute error 12.9 cycles, mean error +4.0 cycles (so the model overestimates remaining life slightly on average), largest single error 60.6 cycles. Against the unclipped true RUL: RMSE 19.574, baseline 43.067, mean absolute error 14.0 cycles, mean error +3.0 cycles, largest single error 60.6 cycles.
 - Evaluated only at the last recorded cycle of each of the 100 test engines, because `RUL_FD001.txt` gives the true RUL only there. Accuracy at earlier cycles is not measured.
 - Random forest, 200 trees, seed 42, scikit-learn 1.5.1. The 21-row sensor table in `app/sensors.py` was compared by hand with Table 2 of Saxena et al. (PHM 2008) on 2026-11-10.
 
@@ -91,7 +91,7 @@ The flat 52 ms for `/predict` in the container is probably a fixed delay in the 
 
 - CI (`.github/workflows/ci.yml`): runs on every push and pull request. Job `test-and-analyze` runs ruff, mypy, bandit and pytest with an 80% coverage minimum. Job `docker-smoke-test` builds the image, starts the container and runs `scripts/smoke_test.sh` against it. Both pass on `main`.
 - CD (`.github/workflows/cd.yml`): builds the image and pushes it to GitHub Container Registry as `ghcr.io/jfurbush/aerosentry`, tagged `latest` and `sha-<first 7 characters of the commit>`. It starts after CI passes on a push to `main`, or by hand. Runs: manual on 2026-11-09 (42708003586), automatic on 2026-11-10 (42949254063) and automatic on 2026-11-12 with the updated actions (43312819800). All succeeded. The package is public.
-- Live deployment: not attempted. The deliverable is the published image, which I pulled and ran on Windows on 2026-11-12.
+- Live deployment: not attempted. The deliverable is the published image, which I pulled and ran on Windows on 2026-11-12. The image I ran has the registry digest `sha256:42f2fa6e70c19910bb0cd5c469064bfccbffcd1fb970eaf4e7ecc680cc41658a` (`docs/evidence/docker-image.txt`).
 
 ## 7. AI use
 
@@ -112,6 +112,6 @@ How far this can be trusted:
 - The image is 1.18 GB, which is large for this service.
 - `scripts/measure.py` has no automated tests, and `mypy` does not cover `scripts/`.
 - A NULL sensor value in the database would give a 500 on the dashboard. The API docs page (`/docs`) needs a CDN, so it does not work offline. The site has no favicon, so browsers get a 404 for it.
-- Only the direct dependencies are pinned. No secret scanner was run, and I did not check that the container user is non-root by running it.
+- Only the direct dependencies are pinned. No secret scanner was run.
 - Windows application control blocked scikit-learn intermittently on one machine, and `core.autocrlf=true` changed the vendored Plotly file until `.gitattributes` fixed it.
 - This is an individual project, so there was no second contributor and no second-person code review.

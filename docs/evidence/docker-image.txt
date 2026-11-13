@@ -1,0 +1,13 @@
+Collected on 2026-11-13 on the same laptop as the measurements, from the image pulled on 2026-11-12.
+
+> docker --version
+Docker version 29.9.2, build a82e528
+
+> docker image ls ghcr.io/jfurbush/aerosentry
+ghcr.io/jfurbush/aerosentry:latest 1.18GB
+
+> docker image inspect (registry digest of the image that was run)
+ghcr.io/jfurbush/aerosentry@sha256:42f2fa6e70c19910bb0cd5c469064bfccbffcd1fb970eaf4e7ecc680cc41658a
+
+> docker run --rm --entrypoint id ghcr.io/jfurbush/aerosentry:latest
+uid=10001(appuser) gid=10001(appuser) groups=10001(appuser)
