@@ -16,14 +16,14 @@ Record any change to the Phase I or Phase II requirements and scope here. Phase 
 
 ## Implementation status
 
-Status as of 2026-11-09.
+Status as of 2026-11-13.
 
 | Item | Status |
 |------|--------|
 | FR-1 to FR-5 data pipeline, training, SQLite | Implemented. Test RMSE 18.6 cycles vs 41.9 mean baseline (target 25). See `models/metrics.json` |
 | FR-6 to FR-8 `/engines`, `/predict`, error handling | Implemented. 404, 422 and 503 cases are tested |
-| FR-9 to FR-12 dashboard | Implemented: engine list, engine page with the predicted RUL, a chart of the model's predicted RUL at every cycle, a one-sensor chart with a moving average, and error pages. It works without internet access. Checked in Chromium on Linux only |
-| FR-13 Docker image | Built and started by the CI job `docker-smoke-test` on every push and pull request, and the smoke test passes. Pushed to `ghcr.io/jfurbush/aerosentry` by a manual CD run (run 42708003586). Not yet run from a pulled image or on Windows |
-| FR-14 CI and CD workflows | CI is active: ruff, mypy, bandit, pytest with coverage, and the Docker smoke test. CD succeeded in a manual run and is configured to start after CI passes on `main` |
+| FR-9 to FR-12 dashboard | Implemented: engine list, engine page with the predicted RUL, a chart of the model's predicted RUL at every cycle, a one-sensor chart with a moving average, and error pages. It works without internet access. Checked in Chromium on Linux and in Chrome 157 on Windows. Firefox not tested |
+| FR-13 Docker image | Built and started by the CI job `docker-smoke-test` on every push and pull request, and the smoke test passes. Pushed to `ghcr.io/jfurbush/aerosentry` by CD. The published image was pulled and run on Windows with Docker 29.9.2 on 2026-11-12 (image 1.18 GB as `docker image ls` shows it) |
+| FR-14 CI and CD workflows | CI is active: ruff, mypy, bandit, pytest with coverage, and the Docker smoke test. CD succeeded in a manual run (run 42708003586) and has started by itself after CI passed on `main` (runs 42949254063 and 43312819800) |
 
 Update this table as work lands. It feeds the Phase III implementation and testing report.
