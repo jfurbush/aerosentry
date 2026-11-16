@@ -29,10 +29,12 @@ docs/               changes log, report template, ai-review-log/
 
 ## Setup
 
+Use Python 3.11. The pinned dependencies (numpy 1.26.4, scikit-learn 1.5.1) were tested only on 3.11, and on Python 3.15 numpy did not import. Check `python --version` first, because a plain `python` may be a newer version.
+
 Windows PowerShell:
 
 ```
-python -m venv .venv
+py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 ```
@@ -40,7 +42,7 @@ pip install -r requirements-dev.txt
 Linux or macOS:
 
 ```
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
