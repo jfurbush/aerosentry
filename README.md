@@ -29,7 +29,7 @@ docs/               changes log, report template, ai-review-log/
 
 ## Setup
 
-Use Python 3.11. The pinned dependencies (numpy 1.26.4, scikit-learn 1.5.1) were tested only on 3.11, and on Python 3.15 numpy did not import. Check `python --version` first, because a plain `python` may be a newer version.
+Use Python 3.11. The pinned dependencies (numpy 1.26.4, scikit-learn 1.5.1) were tested only on 3.11, and on Python 3.15 numpy did not import. Make sure it is installed (`py -3.11 --version` on Windows, `python3.11 --version` on Linux and macOS). A plain `python` may be a newer version, so the commands below name 3.11.
 
 Windows PowerShell:
 

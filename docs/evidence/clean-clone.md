@@ -1,6 +1,6 @@
 # Clean-clone check
 
-Done on 2026-11-16 on the same laptop as the measurements. The repository was cloned from GitHub into a new folder (`git clone https://github.com/jfurbush/aerosentry`) at main after PR #31 (0f4ab89), and the README was followed from there.
+Done on 2026-11-16 on the same laptop as the measurements. The repository was cloned from GitHub into a new folder (`git clone https://github.com/jfurbush/aerosentry`) at main after PR #31 (0f4ab89), and the README was followed from there, with one substitution: the virtual environment command (see the table).
 
 ## What I did and what happened
 
