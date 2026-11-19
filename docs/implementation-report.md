@@ -1,9 +1,9 @@
 # AeroSentry: Phase III Implementation and Testing Report
 
-Group members: Jeffery Furbush (individual project)
-Repository: https://github.com/jfurbush/aerosentry
-Date: 2026-11-13
-Code state: `main` at 7f71b82. The tests and measurements were run on de1b174, which has the same application code. Copies of the tool output are in `docs/evidence/`.
+Group members: Jeffery Furbush (individual project)\
+Repository: https://github.com/jfurbush/aerosentry\
+Date: 2026-11-18\
+Code state: the commit tagged `phase3-submission` on `main`. The tests and measurements were run on de1b174, which has the same application code. Copies of the tool output are in `docs/evidence/`.
 
 AeroSentry estimates the remaining useful life (RUL), in operating cycles, of turbofan engines from the simulated NASA CMAPSS FD001 data. It is a FastAPI service with a SQLite database, a random forest model and a server-rendered dashboard, packaged as a Docker image. All 14 functional requirements are implemented (FR-5 with a scope change, see section 2). The model test RMSE is 18.6 cycles against a target of 25. Gaps are listed in section 8.
 
@@ -32,14 +32,14 @@ AeroSentry estimates the remaining useful life (RUL), in operating cycles, of tu
 |-------------|--------|----------|
 | NFR-1 RMSE reported with a baseline, target 25 or less | Met | 18.557 against a baseline of 41.942 (section 5). |
 | NFR-2 `/predict` under 500 ms | Met | Median 8.2 ms running directly, 51.9 ms in the container, maximum 54.2 ms (section 3). |
-| NFR-2 Detail page under 3 s | Met in Chrome | Page load took 374 to 453 ms in 9 loads with the cache off. Not measured in Firefox. |
+| NFR-2 Detail page under 3 s | Met in Chrome | Page load took 374 to 453 ms in 9 loads with the cache off. No load times were recorded in Firefox (`docs/evidence/browser-check.md`). |
 | NFR-3 Coverage of at least 80%. All tests pass before a merge | Coverage met. Merge rule partly shown | Coverage is 98.98%. For PRs #26 to #30 I watched the checks go green before merging. I did not check earlier PRs, and I did not check whether branch protection enforces it. |
 | NFR-4 ruff and mypy clean on `main`. Type hints on public functions | Met | Both clean in CI and locally. mypy runs in strict mode on `app/` and `pipeline/`. |
 | NFR-5 No high-severity bandit findings. No secrets. Non-root container. No uploads | Met, with a limit | bandit reports no findings at either level. The container runs as a non-root user (checked with `id`). No secret scanner was run. The API takes only an engine ID. |
 | NFR-6 Fixed seed. Pinned dependencies. Builds from a clean checkout | Met, with a limit | Seed is 42. The direct dependencies are pinned, the transitive ones are not. CI builds the image from a fresh checkout on every push and pull request. Retraining from a fresh clone on 2026-11-16 reproduced the committed `models/metrics.json` exactly (`docs/evidence/clean-clone.md`, which did not repeat the Docker build). |
 | NFR-7 Python 3.11+ and a Linux container | Partly met | Met on Python 3.11, on Windows and on the Linux CI runner. The Linux container is built and smoke-tested in CI, and I ran it on Windows through Docker Desktop. Not met on Python 3.15.2, where the pinned numpy did not import (seen 2026-11-10). Python 3.12 to 3.14 were not tested. |
-| NFR-8 Chrome and Firefox. Values labelled in cycles | Chrome only | Chrome 157 on Windows, and Chromium on Linux earlier. Firefox was not tested. The axis labels were checked on engines 1, 97 and 49. |
-| NFR-9 Every merged PR has an AI-review log | Partly met | 20 PRs were merged (#11 to #30). Each has a log file. Several logs were written after the merge, and PR #20 had no AI review. See section 7. |
+| NFR-8 Chrome and Firefox. Values labelled in cycles | Partly met | Chrome 157 on Windows, and Chromium on Linux earlier: charts, axis labels in cycles and the sensor list were checked in detail on engines 1, 97 and 49. Firefox 160.0 on Windows: checked by eye only. I opened the dashboard and saw no problems, but I did not record which engines or checks, and no load times (`docs/evidence/browser-check.md`). |
+| NFR-9 Every merged PR has an AI-review log | Partly met | 23 PRs are merged by the end of this work (#11 to #33). Each has a log file. Several logs were written after the merge, and PR #20 had no AI review. See section 7. |
 | NFR-10 README covers setup, running, tests, rebuilding the model | Met | README sections: Setup, Run, Test, Rebuild the model, Docker, CI/CD and deployment. I followed it from a fresh clone on 2026-11-16 (`docs/evidence/clean-clone.md`). The Python setup step was wrong for a machine whose default `python` is 3.15, and the README now says to use 3.11. |
 
 ## 2. Changes to requirements or scope
@@ -107,7 +107,7 @@ How far this can be trusted:
 ## 8. Known limitations
 
 - The model's error at earlier cycles is not measured, only at each test engine's last cycle.
-- Firefox was not tested. Chrome 157 on Windows was tested on three engines.
+- Firefox 160.0 was checked by eye with no problems seen, but no load times and no list of the pages checked were recorded. Chrome 157 on Windows was checked in detail on three engines.
 - Measurements come from one laptop, with one run per row. The cause of the 52 ms `/predict` time in the container is unconfirmed.
 - The image is 1.18 GB, which is large for this service.
 - `scripts/measure.py` has no automated tests, and `mypy` does not cover `scripts/`.
